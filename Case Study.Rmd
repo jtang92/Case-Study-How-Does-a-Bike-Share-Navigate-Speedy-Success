@@ -1,0 +1,152 @@
+---
+title: "Case study: How does a bike-share navigate speedy success?"
+author: "Jesse Tang"
+date: "2024-04-19"
+output: html_document
+---
+
+## Welcome to my Case Study!
+In this case study, I have been tasked as a junior data analyst working for the bike-share company **Cyclic**, tasked to answer three questions from my manager:
+
+* **How do annual members and casual riders use Cyclistic bikes differently?**
+* **Why would casual riders buy Cyclistic annual memberships?**
+* **How can Cyclistic use digital media to influence casual riders to become members?**
+
+
+Our **deliverables** are clearly defined in this case study as follows:
+
+* **A clear statement of the business task**
+* **A description of all data sources used**
+* **Documentation of any cleaning or manipulation of data***
+* **A summary of your analysis**
+* **Supporting visualizations and key ndings**
+* **Your top three recommendations based on your analysis**
+
+
+## Step 1. Preparations in RStudio
+Before beginning, we first have to **load the necessary packages** required for this analysis.
+
+```{r Loading the necessary packages for this project}
+library(tidyverse)
+library(ggplot2)
+library(janitor)
+```
+
+
+## Step 2. Uploading dataset
+For this case study, I have selected the available tripdata set made available by **Motivate International Inc.** under this [license](https://divvybikes.com/data-license-agreement). All the datasets have been securely stored in a folder titled *"Case Study"*. We will now upload each dataset into RStudio to begin analysis.
+
+```{r Naming and uploading the dataset}
+march_2023 <- read.csv("~/Case Study/202303-divvy-tripdata.csv")
+april_2023 <- read.csv("~/Case Study/202304-divvy-tripdata.csv")
+may_2023 <- read.csv("~/Case Study/202305-divvy-tripdata.csv")
+june_2023 <- read.csv("~/Case Study/202306-divvy-tripdata.csv")
+july_2023 <- read.csv("~/Case Study/202307-divvy-tripdata.csv")
+august_2023 <- read.csv("~/Case Study/202308-divvy-tripdata.csv")
+september_2023 <- read.csv("~/Case Study/202309-divvy-tripdata.csv")
+october_2023 <- read.csv("~/Case Study/202310-divvy-tripdata.csv")
+november_2023 <- read.csv("~/Case Study/202311-divvy-tripdata.csv")
+december_2023 <- read.csv("~/Case Study/202312-divvy-tripdata.csv")
+january_2024 <- read.csv("~/Case Study/202401-divvy-tripdata.csv")
+february_2024 <- read.csv("~/Case Study/202402-divvy-tripdata.csv")
+march_2024 <- read.csv("~/Case Study/202403-divvy-tripdata.csv")
+```
+
+
+Next, we will **combine** the above thirteen datasets into one dataset, that way we do not need to type out all the months for every entry. This also collects all the information into the same spreadsheet for consistent analysis:
+
+```{r Combining all the dataset into one}
+total_year <- rbind(march_2023,april_2023,may_2023,june_2023,july_2023,august_2023,september_2023,october_2023,november_2023,december_2023,january_2024,february_2024,march_2024)
+```
+
+
+Going forward, our combined dataset can be referred to as **total_year.csv.** We will save a copy of this uncleaned, combined data as a backup.
+
+```{r Saving a new file with all the data}
+write.csv(total_year,file="~/Case Study/total_year.csv")
+```
+
+
+Finally, before we start cleaning, we want to ensure that there are no errors or inconsistencies with our new dataset. We can quickly check that with the following:
+
+```{r Checking the file before we clean}
+names(total_year)
+summary(total_year)
+str(total_year)
+View(head(total_year))
+View(tail(total_year))
+```
+
+
+## Step 3. The cleaning process
+Before we start with the cleaning process, we are going to make another, new dataset for the cleaned data. By doing so, we are **keeping a copy of the original data** in case something goes wrong, or we need to change our cleaning process.
+
+```{r Creating a new dataset for our clean data}
+clean_total_year <- total_year[complete.cases(total_year),]
+```
+
+
+First, we want to **remove any "NA," empty, missing, or duplicate data** in our data set.
+
+```{r Removing any "NA," empty, missing, or duplicated data}
+clean_total_year <- drop_na(clean_total_year)
+clean_total_year <- remove_empty(clean_total_year)
+clean_total_year <- remove_missing(clean_total_year)
+clean_total_year <- distinct(clean_total_year)
+```
+
+
+Next, to make our data more readable and user-friendly, we are going to create some new columns, formatted in a way for us to easily understand what the data represents. We will be adding a **date** column indicating the date the bike was taken out, a **week_day** column indicating what day of the week it was, a **month** column indicating what month it was along with a year as we have both March 2023 and March 2024 data, a **time** column indicating the time of day the bike was taken out.
+
+```{r created new columns for more readable dates}
+clean_total_year$date <- as.Date(clean_total_year$started_at)
+clean_total_year$week_day <- format(as.Date(clean_total_year$date), "%A")
+clean_total_year$month <- format(as.Date(clean_total_year$date), "%b_%y")
+clean_total_year$year <- format(clean_total_year$date, "%Y")
+clean_total_year$time <- as.POSIXct(clean_total_year$started_at, format = "%Y-%m-%d %H:%M:%S")
+clean_total_year$time <- format(clean_total_year$time, format = "%H:%M")
+```
+
+
+One column that is missing from the original data set is the **length of time** the bikes are taken out. Thankfully, we have the time that the bike was checked out, and then checked in. By using those two figures, we can calculate the length of time:
+
+```{r created new column for ride length in minutes}
+clean_total_year$ride_length <- difftime(clean_total_year$ended_at, clean_total_year$started_at, units = "mins")
+```
+
+
+When viewing the data, I noticed that there are some **negative time values** in the ride length. This is likely due to an error in the start/end time in the data, where the start time was greater than the end time. Therefore, in order to remove this error, we will **filter out any rows where the start time is greater than the end time**:
+
+```{r Ensuring no negative values in our data}
+clean_total_year <- clean_total_year %>%
+  filter(started_at < ended_at)
+```
+
+
+I have also noticed that there were several ride lengths that **exceeded 24 hours, or 1440 minutes.** These outliers could potentially impact our analysis negatively and is very likely that these were either reported in error, or cases of stolen bikes. Therefore, we will be removing them from our dataset:
+
+```{r removing trips that are greater than 24h}
+clean_total_year <- clean_total_year[!clean_total_year$ride_length>1440,] 
+```
+
+
+On the contrary, there were several ride lengths that were **unrealistically short, from 0.01 minutes.** It is likely that people may have accidentally checked out the wrong bike, and returned it after noticing their mistake, however the system still triggers each event. To keep our analysis consistent, we will be assuming and removing ride lengths that are less than 5 minutes:
+
+```{r removing trips that are less than 5 minutes}
+clean_total_year <- clean_total_year[!clean_total_year$ride_length<5,] 
+```
+
+
+Our dataset also included **extra information** such as the ride ID, start/end station, start/end station ID, and the longitude/latitude which are not necessary to our project. Therefore, we will choose only the necessary columns required for our analysis to answer the initial proposed business task, decreasing processing time and increasing efficiency.
+
+```{r Choosing only the columns of data we will use in our analysis}
+clean_total_year <- clean_total_year %>% 
+  select(rideable_type, member_casual, month, year, time, started_at, ended_at, week_day, ride_length)
+```
+
+With that, our data is **cleaned and ready for analysis and visualization.** We will be using **Tableau** to prepare our visualization aids, so we will need to save a copy of our cleaned data to be used:
+
+```{r save a copy of the cleaned data}
+write.csv(clean_total_year,file = "~/Case Study/clean_total_year.csv")
+```
+
