@@ -42,7 +42,7 @@ Once completed, the data is uploaded to Tableau to create visualizations. Based 
 
 
 
-# So... to warp things up...
+# So... to wrap things up...
 #### **1. How do annual members and casual riders use Cyclistic bikes differently?**
 Based on our analysis, we can surmise that a good percentage of our annual members that use the bike-share service use it on a daily basis for their means of transportation throughout the day, likely for work or school. Casual riders on the other hand we can see them likely using our services on the weekends for recreational purposes.
 
